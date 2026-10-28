@@ -72,9 +72,14 @@ jobs:
           
           Write-Host "2. Testing data consistency..."
           
+          # Получаем данные из БД
           $dbCountRaw = docker compose exec -T db psql -U ${{ secrets.DB_USER }} -d ${{ secrets.DB_NAME }} -t -c "SELECT COUNT(*) FROM items;"
-          $dbCount = [int]($dbCountRaw.Trim())
           
+          # Очищаем вывод от лишних пробелов, пустых строк и берем первое число
+          $dbCountClean = ($dbCountRaw -join "").Trim()
+          $dbCount = [int]$dbCountClean
+          
+          # Считаем количество записей в JSON-ответе API
           $webCount = ([regex]::Matches($apiResponse, '"id"')).Count
           
           Write-Host "Database count: $dbCount"
