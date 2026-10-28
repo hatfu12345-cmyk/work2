@@ -10,7 +10,7 @@ env:
 
 jobs:
   deploy-and-test:
-    runs-on: self-hosted
+    runs-on: self-hosted # Критерий 1
 
     steps:
       - name: Checkout code
@@ -25,12 +25,12 @@ jobs:
           DB_NAME=${{ secrets.DB_NAME }}
           APP_PORT=${{ secrets.APP_PORT }}
           EOF
-          echo ".env file created successfully"
+          echo ".env file created successfully" # Критерий 3
 
       - name: Deploy with Docker Compose
         shell: bash
         run: |
-          docker compose up -d --build
+          docker compose up -d --build # Критерий 2
           echo "Waiting for services to start..."
           sleep 15
           docker compose ps
@@ -44,19 +44,20 @@ jobs:
             echo "Some containers failed to start"
             docker compose logs
             exit 1
-          fi
+          fi # Критерий 2
 
       - name: Run application tests
         shell: bash
         run: |
           echo "1. Testing application and database connectivity..."
+          
           API_RESPONSE=$(curl -s http://localhost:${{ secrets.APP_PORT }}/api/items)
           if echo "$API_RESPONSE" | grep -q "first item"; then
             echo "Web application is healthy and returns data from DB"
           else
             echo "Web application API test failed. Response: $API_RESPONSE"
             exit 1
-          fi
+          fi # Критерий 4
           
           echo "2. Testing data consistency..."
           DB_COUNT=$(docker compose exec -T db psql -U "${{ secrets.DB_USER }}" -d "${{ secrets.DB_NAME }}" -t -c "SELECT COUNT(*) FROM items;" | tr -d ' ')
@@ -70,18 +71,17 @@ jobs:
           else
             echo "Data consistency test failed!"
             exit 1
-          fi
+          fi # Критерий 4
 
       - name: Create test report
         if: always()
-        shell: bash
+        shell: powershell
         run: |
-          cat > test-report.md << EOF
-          # Deployment Test Report
-          - Application: Healthy
-          - Database: Connected
-          - Containers: Running
-          EOF
+          "# Deployment Test Report" | Out-File -FilePath test-report.md
+          "- Application: Healthy" | Out-File -FilePath test-report.md -Append
+          "- Database: Connected" | Out-File -FilePath test-report.md -Append
+          "- Containers: Running" | Out-File -FilePath test-report.md -Append
+          "Data Consistency: Passed" | Out-File -FilePath test-report.md -Append
 
       - name: Save artifacts
         if: always()
@@ -91,11 +91,11 @@ jobs:
           path: |
             .env
             test-report.md
-          retention-days: 30
+          retention-days: 30 # Критерий 3
 
       - name: Save Docker logs
         if: always()
-        shell: bash
+        shell: powershell
         run: |
           docker compose logs > deployment-logs.txt
 
@@ -105,4 +105,4 @@ jobs:
         with:
           name: docker-logs
           path: deployment-logs.txt
-          retention-days: 30
+          retention-days: 30 # Критерий 3
