@@ -28,8 +28,14 @@ jobs:
       - name: Deploy with Docker Compose
         shell: powershell
         run: |
+          Write-Host "Cleaning up old Docker resources to prevent cache errors..."
+          docker system prune -f
+          docker volume prune -f
+          
+          Write-Host "Starting deployment..."
           docker compose down -v
           docker compose up -d --build # Критерий 2
+          
           Write-Host "Waiting for services to start..."
           Start-Sleep -Seconds 15
           docker compose ps
@@ -51,7 +57,6 @@ jobs:
         run: |
           Write-Host "1. Testing application and database connectivity..."
           
-          # Проверка API
           $apiResponse = (Invoke-WebRequest -Uri "http://localhost:${{ secrets.APP_PORT }}/api/items" -UseBasicParsing).Content
           
           if ($apiResponse -match "first item") {
@@ -63,11 +68,9 @@ jobs:
           
           Write-Host "2. Testing data consistency..."
           
-          # Считаем записи в БД (избавляемся от пробелов и переносов строк)
           $dbCountRaw = docker compose exec -T db psql -U ${{ secrets.DB_USER }} -d ${{ secrets.DB_NAME }} -t -c "SELECT COUNT(*) FROM items;"
           $dbCount = [int]($dbCountRaw.Trim())
           
-          # Считаем записи в JSON-ответе API
           $webCount = ([regex]::Matches($apiResponse, '"id"')).Count
           
           Write-Host "Database count: $dbCount"
