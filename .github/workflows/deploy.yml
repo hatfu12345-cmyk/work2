@@ -32,6 +32,10 @@ jobs:
           docker system prune -f
           docker volume prune -f
           
+          Write-Host "Force removing old containers to prevent conflicts..."
+          docker rm -f app-db 2>$null
+          docker rm -f app 2>$null
+          
           Write-Host "Starting deployment..."
           docker compose down -v
           docker compose up -d --build # Критерий 2
