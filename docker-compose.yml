@@ -40,7 +40,7 @@ services:
     - ./init:/docker-entrypoint-initdb.d:ro
   restart: unless-stopped
   networks:
-    - app_net
+    app_net
 
 volumes:
   db_data:
