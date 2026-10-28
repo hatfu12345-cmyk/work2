@@ -3,7 +3,7 @@ services:
     build:
       context: ./backend
       dockerfile: Dockerfile
-    image: app-backend:1.0.0
+    image: app-backend:latest
     container_name: app
     ports:
       - "8080:8080"
@@ -21,26 +21,28 @@ services:
       db:
         condition: service_healthy
     restart: unless-stopped
+    networks:
+      app_net:
 
   db:
-  image: postgres:16-alpine
-  container_name: app-db
-  environment:
-    POSTGRES_USER: ${DB_USER}
-    POSTGRES_PASSWORD: ${DB_PASSWORD}
-    POSTGRES_DB: ${DB_NAME}
-  healthcheck:
-    test: ["CMD-SHELL", "pg_isready -U ${DB_USER} -d ${DB_NAME}"]
-    interval: 5s
-    timeout: 3s
-    retries: 10
-    start_period: 10s
-  volumes:
-    - db_data:/var/lib/postgresql/data
-    - ./init:/docker-entrypoint-initdb.d:ro
-  restart: unless-stopped
-  networks:
-    app_net
+    image: postgres:16-alpine
+    container_name: app-db
+    environment:
+      POSTGRES_USER: ${DB_USER}
+      POSTGRES_PASSWORD: ${DB_PASSWORD}
+      POSTGRES_DB: ${DB_NAME}
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${DB_USER} -d ${DB_NAME}"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+      start_period: 10s
+    volumes:
+      - db_data:/var/lib/postgresql/data
+      - ./init:/docker-entrypoint-initdb.d:ro
+    restart: unless-stopped
+    networks:
+      app_net:
 
 volumes:
   db_data:
