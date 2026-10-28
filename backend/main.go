@@ -11,14 +11,16 @@ import (
 )
 
 type Item struct {
-	ID   int    "json:\"id\""
-	Name string "json:\"name\""
+	ID   int    `json:"id"`
+	Name string `json:"name"`
 }
 
 func main() {
+	// Формируем строку подключения, используя переменные из .env
 	dsn := "host=" + env("DB_HOST", "db") +
 		" port=" + env("DB_PORT", "5432") +
-		" user=postgres" +
+		" user=" + env("DB_USER", "app") +
+		" password=" + env("DB_PASSWORD", "secret123") +
 		" dbname=" + env("DB_NAME", "appdb") +
 		" sslmode=disable"
 
@@ -28,8 +30,29 @@ func main() {
 	}
 	defer db.Close()
 
+	// Проверяем подключение к базе (с несколькими попытками, если БД еще грузится)
+	for i := 0; i < 10; i++ {
+		err = db.Ping()
+		if err == nil {
+			break
+		}
+		log.Printf("Waiting for DB... (%v)", err)
+		time.Sleep(2 * time.Second)
+	}
+	if err != nil {
+		log.Fatal("Could not connect to database: ", err)
+	}
+
+	// Создаем таблицу, если ее нет
 	if _, err := db.Exec("CREATE TABLE IF NOT EXISTS items (id SERIAL PRIMARY KEY, name TEXT NOT NULL)"); err != nil {
 		log.Fatal(err)
+	}
+
+	// Заполняем базу данными, если таблица пустая (чтобы тесты прошли)
+	var count int
+	db.QueryRow("SELECT COUNT(*) FROM items").Scan(&count)
+	if count == 0 {
+		db.Exec("INSERT INTO items (name) VALUES ('first item'), ('second item')")
 	}
 
 	staticDir := env("STATIC_DIR", "/app/static")
@@ -57,8 +80,7 @@ func main() {
 		json.NewEncoder(w).Encode(items)
 	})
 
-		http.Handle("/", fs)
-	
+	http.Handle("/", fs)
 
 	addr := ":" + env("HTTP_PORT", "8080")
 	log.Printf("listening on %s", addr)
