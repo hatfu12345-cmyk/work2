@@ -16,60 +16,69 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v4
 
-       - name: Create .env file from secrets
+      - name: Create .env file from secrets
         shell: powershell
         run: |
           "DB_USER=${{ secrets.DB_USER }}" | Out-File -FilePath .env -Encoding utf8
           "DB_PASSWORD=${{ secrets.DB_PASSWORD }}" | Out-File -FilePath .env -Encoding utf8 -Append
           "DB_NAME=${{ secrets.DB_NAME }}" | Out-File -FilePath .env -Encoding utf8 -Append
           "APP_PORT=${{ secrets.APP_PORT }}" | Out-File -FilePath .env -Encoding utf8 -Append
-          Write-Host ".env file created successfully"
+          Write-Host ".env file created successfully" # Критерий 3
 
       - name: Deploy with Docker Compose
-        shell: bash
+        shell: powershell
         run: |
+          docker compose down -v
           docker compose up -d --build # Критерий 2
-          echo "Waiting for services to start..."
-          sleep 15
+          Write-Host "Waiting for services to start..."
+          Start-Sleep -Seconds 15
           docker compose ps
 
       - name: Verify containers are running
-        shell: bash
+        shell: powershell
         run: |
-          if docker compose ps | grep -q "Up"; then
-            echo "All containers are running"
-          else
-            echo "Some containers failed to start"
-            docker compose logs
-            exit 1
-          fi # Критерий 2
+          $status = docker compose ps
+          if ($status -match "Up") {
+              Write-Host "All containers are running"
+          } else {
+              Write-Host "Some containers failed to start"
+              docker compose logs
+              exit 1
+          } # Критерий 2
 
       - name: Run application tests
-        shell: bash
+        shell: powershell
         run: |
-          echo "1. Testing application and database connectivity..."
+          Write-Host "1. Testing application and database connectivity..."
           
-          API_RESPONSE=$(curl -s http://localhost:${{ secrets.APP_PORT }}/api/items)
-          if echo "$API_RESPONSE" | grep -q "first item"; then
-            echo "Web application is healthy and returns data from DB"
-          else
-            echo "Web application API test failed. Response: $API_RESPONSE"
-            exit 1
-          fi # Критерий 4
+          # Проверка API
+          $apiResponse = (Invoke-WebRequest -Uri "http://localhost:${{ secrets.APP_PORT }}/api/items" -UseBasicParsing).Content
           
-          echo "2. Testing data consistency..."
-          DB_COUNT=$(docker compose exec -T db psql -U "${{ secrets.DB_USER }}" -d "${{ secrets.DB_NAME }}" -t -c "SELECT COUNT(*) FROM items;" | tr -d ' ')
-          WEB_COUNT=$(echo "$API_RESPONSE" | grep -o '"id"' | wc -l | tr -d ' ')
+          if ($apiResponse -match "first item") {
+              Write-Host "Web application is healthy and returns data from DB"
+          } else {
+              Write-Host "Web application API test failed. Response: $apiResponse"
+              exit 1
+          } # Критерий 4
           
-          echo "Database count: $DB_COUNT"
-          echo "Web API count: $WEB_COUNT"
+          Write-Host "2. Testing data consistency..."
           
-          if [ "$DB_COUNT" -eq "$WEB_COUNT" ]; then
-            echo "Data consistency test passed!"
-          else
-            echo "Data consistency test failed!"
-            exit 1
-          fi # Критерий 4
+          # Считаем записи в БД (избавляемся от пробелов и переносов строк)
+          $dbCountRaw = docker compose exec -T db psql -U ${{ secrets.DB_USER }} -d ${{ secrets.DB_NAME }} -t -c "SELECT COUNT(*) FROM items;"
+          $dbCount = [int]($dbCountRaw.Trim())
+          
+          # Считаем записи в JSON-ответе API
+          $webCount = ([regex]::Matches($apiResponse, '"id"')).Count
+          
+          Write-Host "Database count: $dbCount"
+          Write-Host "Web API count: $webCount"
+          
+          if ($dbCount -eq $webCount) {
+              Write-Host "Data consistency test passed!"
+          } else {
+              Write-Host "Data consistency test failed!"
+              exit 1
+          } # Критерий 4
 
       - name: Create test report
         if: always()
