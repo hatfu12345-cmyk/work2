@@ -6,6 +6,7 @@ import (
 	"log"
 	"net/http"
 	"os"
+	"time" // <--- ОБЯЗАТЕЛЬНО ДОЛЖНО БЫТЬ ТУТ
 
 	_ "github.com/lib/pq"
 )
@@ -16,7 +17,6 @@ type Item struct {
 }
 
 func main() {
-	// Формируем строку подключения, используя переменные из .env
 	dsn := "host=" + env("DB_HOST", "db") +
 		" port=" + env("DB_PORT", "5432") +
 		" user=" + env("DB_USER", "app") +
@@ -30,7 +30,7 @@ func main() {
 	}
 	defer db.Close()
 
-	// Проверяем подключение к базе (с несколькими попытками, если БД еще грузится)
+	// Ждем, пока база данных запустится
 	for i := 0; i < 10; i++ {
 		err = db.Ping()
 		if err == nil {
@@ -43,12 +43,12 @@ func main() {
 		log.Fatal("Could not connect to database: ", err)
 	}
 
-	// Создаем таблицу, если ее нет
+	// Создаем таблицу
 	if _, err := db.Exec("CREATE TABLE IF NOT EXISTS items (id SERIAL PRIMARY KEY, name TEXT NOT NULL)"); err != nil {
 		log.Fatal(err)
 	}
 
-	// Заполняем базу данными, если таблица пустая (чтобы тесты прошли)
+	// Заполняем базу, если она пустая
 	var count int
 	db.QueryRow("SELECT COUNT(*) FROM items").Scan(&count)
 	if count == 0 {
