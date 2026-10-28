@@ -6,7 +6,7 @@ import (
 	"log"
 	"net/http"
 	"os"
-	"time" // <--- ОБЯЗАТЕЛЬНО ДОЛЖНО БЫТЬ ТУТ
+	"time"
 
 	_ "github.com/lib/pq"
 )
@@ -30,7 +30,6 @@ func main() {
 	}
 	defer db.Close()
 
-	// Ждем, пока база данных запустится
 	for i := 0; i < 10; i++ {
 		err = db.Ping()
 		if err == nil {
@@ -43,12 +42,10 @@ func main() {
 		log.Fatal("Could not connect to database: ", err)
 	}
 
-	// Создаем таблицу
 	if _, err := db.Exec("CREATE TABLE IF NOT EXISTS items (id SERIAL PRIMARY KEY, name TEXT NOT NULL)"); err != nil {
 		log.Fatal(err)
 	}
 
-	// Заполняем базу, если она пустая
 	var count int
 	db.QueryRow("SELECT COUNT(*) FROM items").Scan(&count)
 	if count == 0 {
