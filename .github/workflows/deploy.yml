@@ -16,16 +16,14 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v4
 
-      - name: Create .env file from secrets
-        shell: bash
+       - name: Create .env file from secrets
+        shell: powershell
         run: |
-          cat > .env << EOF
-          DB_USER=${{ secrets.DB_USER }}
-          DB_PASSWORD=${{ secrets.DB_PASSWORD }}
-          DB_NAME=${{ secrets.DB_NAME }}
-          APP_PORT=${{ secrets.APP_PORT }}
-          EOF
-          echo ".env file created successfully" # Критерий 3
+          "DB_USER=${{ secrets.DB_USER }}" | Out-File -FilePath .env -Encoding utf8
+          "DB_PASSWORD=${{ secrets.DB_PASSWORD }}" | Out-File -FilePath .env -Encoding utf8 -Append
+          "DB_NAME=${{ secrets.DB_NAME }}" | Out-File -FilePath .env -Encoding utf8 -Append
+          "APP_PORT=${{ secrets.APP_PORT }}" | Out-File -FilePath .env -Encoding utf8 -Append
+          Write-Host ".env file created successfully"
 
       - name: Deploy with Docker Compose
         shell: bash
